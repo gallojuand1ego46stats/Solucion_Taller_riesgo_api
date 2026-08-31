@@ -6,7 +6,7 @@ import pickle
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, HTTPException
 
 import config
 from dominio import EvaluadorRiesgo, buscar_siniestro, cargar_siniestros
@@ -48,7 +48,7 @@ async def historial():
 async def siniestro(id_siniestro: int):
     fila = buscar_siniestro(id_siniestro)
     if fila is None:
-        return {"error": f"no existe el siniestro {id_siniestro}"}
+        raise HTTPException(status_code=404, detail=f"no existe el siniestro {id_siniestro}")
     return fila
 
 
