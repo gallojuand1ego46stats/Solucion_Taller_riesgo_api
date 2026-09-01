@@ -63,6 +63,9 @@ async def exportar():
 
 
 # --- Endpoints de perfil de carga -----------------------------------------
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 @app.get("/ping")
 async def ping():
