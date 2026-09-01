@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 from fastapi import FastAPI, Response, HTTPException
+from pydantic import BaseModel, Field, field_validator
 
 import config
 from dominio import EvaluadorRiesgo, buscar_siniestro, cargar_siniestros
@@ -14,26 +15,31 @@ from dominio import EvaluadorRiesgo, buscar_siniestro, cargar_siniestros
 BASE = Path(__file__).parent
 app = FastAPI(title="Riesgo API", version="0.1.0")
 
+class PolizaPayload(BaseModel):
+    poliza: str
+    monto: float = Field(gt=0, description="Debe ser un monto positivo")
+    antiguedad: int = Field(default=0, ge=0, description="No puede ser negativa")
+    siniestros_previos: int = Field(default=0, ge=0)
+
+    @field_validator("poliza")
+    @classmethod
+    def poliza_no_vacia(cls, v):
+        if not v.strip():
+            raise ValueError("la póliza no puede estar vacía")
+        return v
+
 
 @app.post("/score")
-async def score(payload: dict):
-    if "poliza" not in payload:
-        return {"error": "falta el campo poliza"}
-
-    assert payload["monto"] > 0, "el monto debe ser positivo"
-
-    if payload.get("antiguedad", 0) < 0:
-        return {"error": "la antigüedad no puede ser negativa"}
-
+async def score(payload: PolizaPayload):
     with open(BASE / config.RUTA_MODELO, "rb") as fh:
         modelo = pickle.load(fh)
 
-    evaluador = EvaluadorRiesgo(payload["poliza"])
-    puntaje = evaluador.puntuar(modelo, payload)
+    evaluador = EvaluadorRiesgo(payload.poliza)
+    puntaje = evaluador.puntuar(modelo, payload.model_dump())
     evaluador.anotar(puntaje)
 
     return {
-        "poliza": payload["poliza"],
+        "poliza": payload.poliza,
         "puntaje": puntaje,
         "alto_riesgo": evaluador.es_alto_riesgo(puntaje),
     }
