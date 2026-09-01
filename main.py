@@ -2,8 +2,10 @@
 riesgo-api-v0 — Servicio de puntuación de siniestros.
 Aseguradora Santo Tomás · prototipo interno.
 """
+import asyncio
 import pickle
 import time
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 from fastapi import FastAPI, Response, HTTPException
@@ -17,6 +19,7 @@ app = FastAPI(title="Riesgo API", version="0.1.0")
 HISTORIAL_GLOBAL = []
 with open(BASE / config.RUTA_MODELO, "rb") as fh:
     MODELO = pickle.load(fh)
+    PROCESS_POOL = ProcessPoolExecutor(max_workers=4)
 class PolizaPayload(BaseModel):
     poliza: str
     monto: float = Field(gt=0, description="Debe ser un monto positivo")
@@ -82,17 +85,23 @@ async def consulta_archivo():
 
 
 @app.get("/servicio-externo")
-async def servicio_externo():
+def servicio_externo():
     time.sleep(0.3)
     return {"tarifa_referencia": 1.18}
 
 
-@app.get("/calculo-pesado")
-async def calculo_pesado():
+def _calcular_pesado():
     total = 0.0
     for i in range(3_000_000):
         total += (i % 7) ** 0.5
-    return {"total": round(total, 2)}
+    return round(total, 2)
+
+
+@app.get("/calculo-pesado")
+async def calculo_pesado():
+    loop = asyncio.get_event_loop()
+    total = await loop.run_in_executor(PROCESS_POOL, _calcular_pesado)
+    return {"total": total}
 
 
 if __name__ == "__main__":

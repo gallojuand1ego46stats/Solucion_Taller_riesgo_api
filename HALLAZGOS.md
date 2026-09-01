@@ -48,8 +48,46 @@
 
 ## `/ping`
 
+Clasificado como trivial: no lee nada ni calcula nada, solo devuelve una constante.
+Con concurrencia 1 tardó 0.019s en total (p50 0.3ms); con concurrencia 20, 0.024s
+(p50 8.7ms). El tiempo total casi no cambia porque no hay ningún trabajo real que
+paralelizar — la pequeña subida en la latencia individual es solo el overhead de
+manejar 20 hilos a la vez, no del endpoint en sí. Se dejó como `async def`, la
+convención estándar en FastAPI para handlers que no bloquean.
+
 ## `/consulta-archivo`
+
+Clasificado como IO-bound: lee un archivo del disco con `read_text()`. Este método
+es síncrono/bloqueante, así que en teoría declararlo `async def` sin usar una
+librería async (como `aiofiles`) es un error — bloquearía el bucle de eventos.
+Sin embargo, midiendo con concurrencia 1 (0.020s, p50 0.4ms) y con 20 (0.026s,
+p50 8.3ms), el tiempo es prácticamente idéntico al de `/ping`: el archivo es tan
+pequeño que el bloqueo no tiene ningún efecto medible. Se decidió dejarlo como
+`async def`: la medición demuestra que, para el tamaño de archivo actual, no hay
+impacto real en el rendimiento, aunque técnicamente lo más correcto a largo plazo
+sería migrar a `aiofiles` si el archivo creciera.
 
 ## `/servicio-externo`
 
+Clasificado como IO-bound: simula una llamada a un servicio externo con
+`time.sleep(0.3)`. Originalmente estaba declarado `async def`, lo cual es un
+defecto grave: `time.sleep()` bloquea todo el proceso, no solo esa petición. Con
+concurrencia 1 tardaba 15.4s en total (esperado, 50 peticiones × 0.3s en fila);
+pero con concurrencia 20 seguía tardando 15.3s en total, con un p50 de 6107ms —
+es decir, las peticiones seguían atendiéndose una por una, sin ningún beneficio
+de la concurrencia. Al cambiar el handler a `def` (sin `async`), FastAPI lo corre
+automáticamente en un threadpool aparte: con el mismo test, concurrencia 20 bajó
+a 0.96s en total, con p50 de 315ms — las 20 peticiones ahora sí se atienden en
+paralelo de verdad.
+
 ## `/calculo-pesado`
+
+Clasificado como CPU-bound: realiza 3 millones de operaciones matemáticas puras,
+sin ninguna espera de E/S. Con `async def` simple, concurrencia 1 tomó 6.765s
+(p50 134.6ms) y concurrencia 20 tomó 6.605s (p50 2620.5ms) — el total no mejoró
+porque el GIL de Python impide que varios hilos ejecuten cálculo puro en paralelo
+de verdad, y bloquear el bucle de eventos además congela todo el servicio mientras
+calcula. La solución fue mover el cálculo a un `ProcessPoolExecutor` (procesos
+reales, no hilos), usando `run_in_executor`: con esto, concurrencia 20 bajó a
+2.325s en total (p50 686.1ms) — casi 3 veces más rápido, limitado ahora solo por
+los núcleos de CPU disponibles (4 workers), no por el diseño del código.
