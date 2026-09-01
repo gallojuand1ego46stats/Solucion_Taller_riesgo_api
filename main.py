@@ -14,7 +14,8 @@ from dominio import EvaluadorRiesgo, buscar_siniestro, cargar_siniestros
 
 BASE = Path(__file__).parent
 app = FastAPI(title="Riesgo API", version="0.1.0")
-
+with open(BASE / config.RUTA_MODELO, "rb") as fh:
+    MODELO = pickle.load(fh)
 class PolizaPayload(BaseModel):
     poliza: str
     monto: float = Field(gt=0, description="Debe ser un monto positivo")
@@ -31,11 +32,8 @@ class PolizaPayload(BaseModel):
 
 @app.post("/score")
 async def score(payload: PolizaPayload):
-    with open(BASE / config.RUTA_MODELO, "rb") as fh:
-        modelo = pickle.load(fh)
-
     evaluador = EvaluadorRiesgo(payload.poliza)
-    puntaje = evaluador.puntuar(modelo, payload.model_dump())
+    puntaje = evaluador.puntuar(MODELO, payload.model_dump())
     evaluador.anotar(puntaje)
 
     return {
