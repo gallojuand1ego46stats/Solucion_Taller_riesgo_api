@@ -14,6 +14,7 @@ from dominio import EvaluadorRiesgo, buscar_siniestro, cargar_siniestros
 
 BASE = Path(__file__).parent
 app = FastAPI(title="Riesgo API", version="0.1.0")
+HISTORIAL_GLOBAL = []
 with open(BASE / config.RUTA_MODELO, "rb") as fh:
     MODELO = pickle.load(fh)
 class PolizaPayload(BaseModel):
@@ -35,6 +36,8 @@ async def score(payload: PolizaPayload):
     evaluador = EvaluadorRiesgo(payload.poliza)
     puntaje = evaluador.puntuar(MODELO, payload.model_dump())
     evaluador.anotar(puntaje)
+    evaluador.anotar(puntaje)
+    HISTORIAL_GLOBAL.append({"poliza": payload.poliza, "puntaje": puntaje})
 
     return {
         "poliza": payload.poliza,
@@ -45,7 +48,7 @@ async def score(payload: PolizaPayload):
 
 @app.get("/historial")
 async def historial():
-    return {"evaluaciones": EvaluadorRiesgo.historial}
+    return {"evaluaciones": HISTORIAL_GLOBAL}
 
 
 @app.get("/siniestros/{id_siniestro}")

@@ -11,12 +11,11 @@ BASE = Path(__file__).parent
 class EvaluadorRiesgo:
     """Evalúa el riesgo de una póliza y guarda lo que ha evaluado."""
 
-    historial = []
     umbral = config.UMBRAL_ALTO_RIESGO
 
     def __init__(self, poliza):
         self.poliza = poliza
-
+        self.historial = []
     @con_registro
     def puntuar(self, modelo, payload):
         rasgos = [[
