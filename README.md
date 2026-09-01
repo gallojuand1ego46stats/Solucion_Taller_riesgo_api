@@ -34,6 +34,7 @@ reinicios en caliente no controlados.
 | Método | Ruta | Qué hace |
 |---|---|---|
 | POST | `/score` | Puntúa una póliza |
+| GET | `/health` | Verifica que el servicio esté disponible |
 | GET | `/historial` | Evaluaciones hechas |
 | GET | `/siniestros/{id}` | Consulta un siniestro |
 | GET | `/exportar` | Exporta el histórico para el equipo de actuaría |
@@ -41,6 +42,7 @@ reinicios en caliente no controlados.
 | GET | `/consulta-archivo` | Cuenta los registros del archivo de siniestros |
 | GET | `/servicio-externo` | Consulta la tarifa de referencia del reasegurador |
 | GET | `/calculo-pesado` | Recalcula la reserva agregada |
+
 
 ### Ejemplo
 
@@ -56,5 +58,5 @@ curl -X POST localhost:8000/score \
 
 ## Notas
 
-- La clave de la API está en `config.py` para que el equipo pueda probar sin configurar nada.
-- El histórico se exporta con `pickle`, que conserva los tipos de Python tal cual.
+- La clave de la API (`API_KEY`, `CLAVE_FIRMA`) se lee desde variables de entorno con `python-dotenv`. Creá un archivo `.env` en la raíz con `API_KEY=...` y `CLAVE_FIRMA=...` antes de arrancar el servicio.
+- El histórico se exporta en formato JSON.
